@@ -9,26 +9,29 @@ import { request as httpsRequest}  from 'https';
 const tempDir = existsSync('/tmp') ? '/tmp' : './tmp';
 const ffmpegPath = existsSync('/opt/ffmpeg') ? '/opt/ffmpeg' : 'ffmpeg';
 
-type S3FileInfo = {
+
+export type S3Location = {
   Bucket: string;
   Key: string;
-  input: boolean;
-  output: boolean;
-};
+}
 
-type UrlFileInfo =  {
+export type UrlLocation = {
   url: string;
+  method?: string;
+}
+
+export type RemoteFileInfo = {
+  location: S3Location | UrlLocation;
   input: boolean;
   output: boolean;
 }
-
-type S3FileLocalInfo = S3FileInfo & { local: string };
-type UrlFileLocalInfo = UrlFileInfo & { local: string };
 
 export interface FFMPEGCommand {
   command: string;
-  fileMapping: Record<string, S3FileInfo | UrlFileInfo>;
+  fileMapping: Record<string, RemoteFileInfo>;
 }
+
+type RemoteAndLocalFileInfo = RemoteFileInfo & { local: string };
 
 const s3Client = new S3();
 
@@ -40,8 +43,8 @@ function toSafeFileName(name: string): string {
   return name.replace(/[^a-z0-9\.]/gi, "-");
 }
 
-async function createInputStream(file: S3FileInfo | UrlFileInfo){
-  const url = (file as UrlFileInfo).url;
+async function createInputStream(file: RemoteFileInfo){
+  const url = (file.location as UrlLocation).url;
   if(url){
     return new Promise<IncomingMessage>((resolve, reject)=> {
       const request = url.startsWith('https://') ?  httpsRequest : httpRequest;
@@ -49,14 +52,14 @@ async function createInputStream(file: S3FileInfo | UrlFileInfo){
       req.end();
     })
   }
-  const { Bucket, Key } = file as  S3FileLocalInfo
+  const { Bucket, Key } = file.location as  S3Location
   return s3Client.getObject({
     Bucket,
     Key
   }).createReadStream();
 }
 
-async function downloadFile(file: (S3FileLocalInfo | UrlFileLocalInfo)){
+async function downloadFile(file: RemoteAndLocalFileInfo){
   const localDir = dirname(file.local);
   if (!existsSync(localDir)){
     mkdirSync(localDir, {recursive: true});
@@ -71,9 +74,9 @@ async function downloadFile(file: (S3FileLocalInfo | UrlFileLocalInfo)){
 }
 
 
-async function uploadFile(file: (S3FileLocalInfo | UrlFileLocalInfo)){
+async function uploadFile(file: RemoteAndLocalFileInfo){
   const stream = createReadStream(file.local);
-  const url = (file as UrlFileInfo).url;
+  const url = (file.location as UrlLocation).url;
   if(url){
     const request = url.startsWith('https://') ?  httpsRequest : httpRequest;
     return new Promise((resolve, reject) => {
@@ -84,7 +87,7 @@ async function uploadFile(file: (S3FileLocalInfo | UrlFileLocalInfo)){
     );
   }
 
-  const { Bucket, Key } = file as  S3FileInfo
+  const { Bucket, Key } = file.location as  S3Location
   return s3Client.putObject({
     Bucket,
     Key,
@@ -92,8 +95,9 @@ async function uploadFile(file: (S3FileLocalInfo | UrlFileLocalInfo)){
   }).promise();
 }
 
-function getFileName(file: S3FileInfo | UrlFileInfo){
-  return basename((file as S3FileInfo).Key || (file as UrlFileInfo).url)
+function getFileName(file: RemoteFileInfo){
+  const location = file.location;
+  return basename((location as S3Location).Key || (location as UrlLocation).url)
 }
 
 export async function executeFfmpeg({
@@ -108,7 +112,7 @@ export async function executeFfmpeg({
         local: `${tempDir}/${i}/${toSafeFileName(getFileName(value))}`,
       },
     }),
-    {} as Record<string, S3FileLocalInfo | UrlFileLocalInfo>
+    {} as Record<string, RemoteAndLocalFileInfo>
   );
   
   Object.values(extendedFileMapping)
