@@ -9,9 +9,9 @@ export async function handler(event: FFMPEGEvent): Promise<FFMPEGResult> {
     event.Records.map<PromiseLike<{ error?: Error }>>(async (record) => {
       try {
         await executeFfmpeg(record);
-        return {};
+        return { error: undefined };
       } catch (e) {
-        console.log("error ==>", e);
+        console.log("error ==>", (e as Error).message);
         return { error: e as Error };
       }
     })

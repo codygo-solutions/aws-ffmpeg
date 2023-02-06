@@ -1,5 +1,6 @@
 import {
   CfnOutput,
+    Duration,
     Stack,
     StackProps,
   } from "aws-cdk-lib";
@@ -27,6 +28,8 @@ export default class CodygoAwsFfmpegStack extends Stack {
         const lambda = new Function(this, 'CodygoAwsFfmpegLambda', {
           functionName: 'CodygoAwsFfmpegLambda',
           layers: [layer],
+          memorySize: 2048,
+          timeout: Duration.minutes(3),
           runtime: Runtime.NODEJS_16_X,
           handler: 'index.handler',
           environment: {
