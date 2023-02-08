@@ -3,7 +3,6 @@ import {
   createReadStream,
   createWriteStream,
   existsSync,
-  fstat,
   mkdirSync,
   unlinkSync,
 } from "fs";
@@ -13,7 +12,6 @@ import { S3 } from "aws-sdk";
 import { IncomingMessage, request as httpRequest } from "http";
 import { request as httpsRequest } from "https";
 import { rm, stat } from "fs/promises";
-import { FieldLogLevel } from "aws-cdk-lib/aws-appsync";
 
 const tempDir = existsSync("/tmp") ? "/tmp" : "./tmp";
 const ffmpegPath = existsSync("/opt/ffmpeg") ? "/opt/ffmpeg" : "ffmpeg";
@@ -134,7 +132,8 @@ export async function executeFfmpeg({
   fileMapping,
 }: FFMPEGCommand) {
 
-  console.log(commandWithPlaceHolders, fileMapping);
+  console.log({commandWithPlaceHolders, fileMapping});
+
   
   const extendedFileMapping = Object.entries(fileMapping).reduce(
     (acc, [placeHolder, value], i) => ({
@@ -149,6 +148,8 @@ export async function executeFfmpeg({
     {} as Record<string, RemoteAndLocalFileInfo>
   );
 
+  console.log({extendedFileMapping});
+
   Object.values(extendedFileMapping).forEach(
     ({ local }) => existsSync(local) && unlinkSync(local)
   );
@@ -159,6 +160,7 @@ export async function executeFfmpeg({
       return extendedFileMapping[placeHolder].local;
     }
   );
+
   console.log("command ==>", commandWithLocalFiles);
 
   const downloads = Object.values(extendedFileMapping).map((file) =>

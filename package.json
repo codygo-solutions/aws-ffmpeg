@@ -1,8 +1,9 @@
 {
-  "name": "aws-ffmpeg",
+  "name": "@codygo/aws-ffmpeg",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "deploy": "npm run build && cdk deploy",
     "build": "sh ./build.sh"
